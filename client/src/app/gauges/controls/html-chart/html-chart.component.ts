@@ -40,6 +40,7 @@ export class HtmlChartComponent extends GaugeBaseComponent {
     static initElement(gab: GaugeSettings, resolver: ComponentFactoryResolver, viewContainerRef: ViewContainerRef, isview: boolean, chartRange: any) {
         let ele = document.getElementById(gab.id);
         if (ele) {
+            ele?.setAttribute('data-name', gab.name);
             let htmlChart = Utils.searchTreeStartWith(ele, this.prefixD);
             if (htmlChart) {
                 const factory = resolver.resolveComponentFactory(ChartUplotComponent);
@@ -60,6 +61,7 @@ export class HtmlChartComponent extends GaugeBaseComponent {
                 componentRef.instance.setOptions(opt);
 
                 componentRef.instance['myComRef'] = componentRef;
+                componentRef.instance['name'] = gab.name;
                 return componentRef.instance;
             }
         }

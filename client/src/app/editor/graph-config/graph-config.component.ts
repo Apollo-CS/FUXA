@@ -1,6 +1,6 @@
 /* eslint-disable @angular-eslint/component-class-suffix */
 import { Component, OnInit, Inject } from '@angular/core';
-import { MatDialog, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { MatLegacyDialog as MatDialog, MatLegacyDialogRef as MatDialogRef, MAT_LEGACY_DIALOG_DATA as MAT_DIALOG_DATA } from '@angular/material/legacy-dialog';
 
 import { TranslateService } from '@ngx-translate/core';
 import { ProjectService } from '../../_services/project.service';
@@ -11,6 +11,7 @@ import { Graph, GraphSource, GraphType, GraphBarProperty, GraphBarXType, GraphBa
 import { EditNameComponent } from '../../gui-helpers/edit-name/edit-name.component';
 import { ConfirmDialogComponent } from '../../gui-helpers/confirm-dialog/confirm-dialog.component';
 import { DeviceTagSelectionComponent, DeviceTagSelectionData } from '../../device/device-tag-selection/device-tag-selection.component';
+import { GraphSourceEditComponent } from './graph-source-edit/graph-source-edit.component';
 
 @Component({
     selector: 'app-graph-config',
@@ -151,7 +152,7 @@ export class GraphConfigComponent implements OnInit {
     }
 
     editGraphSource(source: GraphSource) {
-        let dialogRef = this.dialog.open(DialogGraphSource, {
+        let dialogRef = this.dialog.open(GraphSourceEditComponent, {
             position: { top: '60px' },
             data: <GraphSource>{
                 id: source.id, device: source.device, name: source.name, label: source.label, color: source.color, fill: source.fill }
@@ -249,29 +250,6 @@ export class GraphConfigComponent implements OnInit {
             }
         }
         return Utils.lineColor[0];
-    }
-}
-
-@Component({
-    selector: 'dialog-graph-source',
-    templateUrl: './graph-source.dialog.html',
-    styleUrls: ['./graph-config.component.css']
-})
-export class DialogGraphSource {
-    defaultColor = Utils.defaultColor;
-    chartAxesType = [1, 2, 3, 4];
-
-    constructor(
-        public dialogRef: MatDialogRef<DialogGraphSource>,
-        @Inject(MAT_DIALOG_DATA) public data: any) {
-    }
-
-    onNoClick(): void {
-        this.dialogRef.close();
-    }
-
-    onOkClick(): void {
-        this.dialogRef.close(this.data);
     }
 }
 
