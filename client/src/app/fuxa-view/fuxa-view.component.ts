@@ -25,11 +25,14 @@ import { TranslateService } from '@ngx-translate/core';
 import { ProjectService } from '../_services/project.service';
 import { NgxTouchKeyboardDirective } from '../framework/ngx-touch-keyboard/ngx-touch-keyboard.directive';
 import { HmiService } from '../_services/hmi.service';
+import { EndPointApi } from '../_helpers/endpointapi';
 import { HtmlSelectComponent } from '../gauges/controls/html-select/html-select.component';
 import { FuxaViewDialogComponent, FuxaViewDialogData } from './fuxa-view-dialog/fuxa-view-dialog.component';
 import { LegacyDialogPosition as DialogPosition, MatLegacyDialog as MatDialog } from '@angular/material/legacy-dialog';
 import { WebcamPlayerDialogComponent, WebcamPlayerDialogData } from '../gui-helpers/webcam-player/webcam-player-dialog/webcam-player-dialog.component';
 import { PlaceholderDevice } from '../_models/device';
+import { LanguageService } from '../_services/language.service';
+import { EventUtils } from '../_helpers/event-utils';
 
 declare var SVG: any;
 
@@ -57,6 +60,8 @@ export class FuxaViewComponent implements OnInit, AfterViewInit, OnDestroy {
 
     eventViewToPanel = Utils.getEnumKey(GaugeEventActionType, GaugeEventActionType.onViewToPanel);
     eventRunScript = Utils.getEnumKey(GaugeEventActionType, GaugeEventActionType.onRunScript);
+    eventOpenTab = Utils.getEnumKey(GaugeEventActionType, GaugeEventActionType.onOpenTab);
+    endPointConfig = EndPointApi.getURL();
     scriptParameterValue = Utils.getEnumKey(ScriptParamType, ScriptParamType.value);
 
     cards: CardModel[] = [];
@@ -82,6 +87,7 @@ export class FuxaViewComponent implements OnInit, AfterViewInit, OnDestroy {
         private scriptService: ScriptService,
         private projectService: ProjectService,
         private hmiService: HmiService,
+        private languageService: LanguageService,
         private resolver: ComponentFactoryResolver,
         private fuxaDialog: MatDialog) {
     }
@@ -111,7 +117,7 @@ export class FuxaViewComponent implements OnInit, AfterViewInit, OnDestroy {
 
     ngOnDestroy() {
         try {
-            this.destroy$.next();
+            this.destroy$.next(null);
             this.destroy$.complete();
             this.gaugesManager.unbindGauge(this.id);
             this.clearGaugeStatus();
@@ -227,7 +233,7 @@ export class FuxaViewComponent implements OnInit, AfterViewInit, OnDestroy {
     @HostListener('window:resize', ['$event'])
     onResize(event?) {
         let hmi = this.projectService.getHmi();
-        if (hmi && hmi.layout && ZoomModeType[hmi.layout.zoom] === ZoomModeType.autoresize) {
+        if (hmi && hmi.layout && ZoomModeType[hmi.layout.zoom] === ZoomModeType.autoresize && !this.child) {
             Utils.resizeViewRev(this.dataContainer.nativeElement, this.dataContainer.nativeElement.parentElement?.parentElement, 'stretch');
         }
     }
@@ -245,7 +251,9 @@ export class FuxaViewComponent implements OnInit, AfterViewInit, OnDestroy {
                     continue;
                 }
                 try {
-                    let gauge = this.gaugesManager.initElementAdded(items[key], this.resolver, this.viewContainerRef, true, this);
+                    // check language translation
+                    const textTranslated = this.languageService.getTranslation(items[key].property?.text);
+                    let gauge = this.gaugesManager.initElementAdded(items[key], this.resolver, this.viewContainerRef, true, this, textTranslated);
                     if (gauge) {
                         this.mapControls[key] = gauge;
                     }
@@ -522,6 +530,8 @@ export class FuxaViewComponent implements OnInit, AfterViewInit, OnDestroy {
                 self.onMonitor(ga, ev, events[i].actparam, events[i].actoptions);
             } else if (events[i].action === this.eventRunScript) {
                 self.onRunScript(events[i]);
+            } else if (events[i].action === this.eventOpenTab) {
+                self.onOpenTab(events[i], events[i].actoptions);
             } else if (events[i].action === this.eventViewToPanel) {
                 self.onSetViewToPanel(events[i]);
             }
@@ -572,6 +582,8 @@ export class FuxaViewComponent implements OnInit, AfterViewInit, OnDestroy {
                         htmlevent.dom.blur();
                     }
                     if (htmlevent.ga.type === HtmlInputComponent.TypeTag) {
+                        // htmlevent.dom.focus();
+                        // htmlevent.dom.select();
                         const events = JSON.parse(JSON.stringify(HtmlInputComponent.getEvents(htmlevent.ga.property, GaugeEventType.enter)));
                         self.eventForScript(events, htmlevent.value);
                     }
@@ -678,7 +690,7 @@ export class FuxaViewComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     private eventForScript(events: GaugeEvent[], value: any) {
-        events.forEach(ev => {
+        events?.forEach(ev => {
             if (value) {
                 let parameters = <ScriptParam[]>ev.actoptions[SCRIPT_PARAMS_MAP];
                 parameters.forEach(param => {
@@ -705,9 +717,10 @@ export class FuxaViewComponent implements OnInit, AfterViewInit, OnDestroy {
 
     private getView(viewref: string): View {
         let view: View;
-        for (let i = 0; i < this.hmi?.views?.length; i++) {
-            if (this.hmi.views[i] && this.hmi.views[i].id === viewref) {
-                view = this.hmi.views[i];
+        const hmi = this.hmi ?? this.hmiService.hmi;
+        for (let i = 0; i < hmi?.views?.length; i++) {
+            if (hmi.views[i]?.id === viewref) {
+                view = hmi.views[i];
                 break;
             }
         }
@@ -768,7 +781,7 @@ export class FuxaViewComponent implements OnInit, AfterViewInit, OnDestroy {
         dialogRef.afterClosed().subscribe();
     }
 
-    onOpenCard(id: string, event, viewref: string, options: any = {}) {
+    onOpenCard(id: string, event: PointerEvent | TouchEvent | any, viewref: string, options: any = {}) {
         if (options?.singleCard) {
             this.cards = [];
             this.changeDetector.detectChanges();
@@ -790,12 +803,11 @@ export class FuxaViewComponent implements OnInit, AfterViewInit, OnDestroy {
         card = new CardModel(id);
         card.x = Utils.isNumeric(options.left) ? parseInt(options.left) : 0;
         card.y = Utils.isNumeric(options.top) ? parseInt(options.top) : 0;
-        if (options.relativeFrom !== GaugeEventRelativeFromType.window) {
-            if (event?.clientX) {
-                card.x += event?.clientX;
-            }
-            if (event?.clientY) {
-                card.y += event?.clientY;
+        if (event && options.relativeFrom !== GaugeEventRelativeFromType.window) {
+            const eventPos = EventUtils.getEventClientPosition(event);
+            if (eventPos) {
+                card.x += eventPos.x ?? 0;
+                card.y += eventPos.y ?? 0;
             }
         }
         if (this.hmi.layout.hidenavigation) {
@@ -811,6 +823,11 @@ export class FuxaViewComponent implements OnInit, AfterViewInit, OnDestroy {
         } else {
             this.cards.push(card);
         }
+    }
+
+    onOpenTab(event: GaugeEvent, options: any) {
+        let link = event.actoptions?.addressType === 'resource' ?  this.endPointConfig + '/' + event.actoptions.resource : event.actparam;
+        window.open(link,  options.newTab ? '_blank' : '_self');
     }
 
     openIframe(id: string, event: any, link: string, options: any) {

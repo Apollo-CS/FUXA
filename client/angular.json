@@ -27,7 +27,8 @@
               "src/styles.css",
               "src/theme.scss",
               "node_modules/uplot/dist/uPlot.min.css",
-              "node_modules/ngx-toastr/toastr.css"
+              "node_modules/ngx-toastr/toastr.css",
+              "node_modules/leaflet/dist/leaflet.css"
             ],
             "scripts": [
               "node_modules/uplot/dist/uPlot.iife.min.js",
@@ -53,11 +54,12 @@
               "pdfmake/build/pdfmake",
               "pdfmake/build/vfs_fonts",
               "socket.io-client",
-                "eventemitter3",
-                "delegate",
-                "flv.js",
-                "danmu.js",
-                "downloadjs"
+              "eventemitter3",
+              "delegate",
+              "flv.js",
+              "danmu.js",
+              "downloadjs",
+              "leaflet"
             ]
           },
           "configurations": {

@@ -22,7 +22,7 @@ declare var SVG: any;
     templateUrl: './pipe-property.component.html',
     styleUrls: ['./pipe-property.component.scss']
 })
-export class PipePropertyComponent implements OnInit {
+export class PipePropertyComponent implements OnInit  {
     @Input() data: PipePropertyData;
     @Output() onPropChanged: EventEmitter<any> = new EventEmitter();
     @Input('reload') set reload(b: any) {
@@ -48,6 +48,11 @@ export class PipePropertyComponent implements OnInit {
     }
 
     ngOnInit() {
+        this.initFromInput();
+    }
+
+    initFromInput() {
+        let emitChange = Utils.isNullOrUndefined(this.data.settings.property) || Utils.isNullOrUndefined(this.data.settings.property.options);
         this.name = this.data.settings.name;
         this.property = this.data.settings.property || new GaugeProperty();
         if (!this.property) {
@@ -55,6 +60,12 @@ export class PipePropertyComponent implements OnInit {
         }
         this.options = <PipeOptions>this.property.options ?? new PipeOptions();
         this.devices = this.projectService.getDeviceList();
+
+        if (emitChange) {
+            setTimeout(() => {
+                this.onPipeChanged();
+            }, 0);
+        }
     }
 
     onFlexAuthChanged(flexAuth: FlexAuthValues) {
@@ -156,13 +167,8 @@ export class PipePropertyComponent implements OnInit {
     }
 
     private _reload() {
-        this.property = this.data.settings.property;
-        if (this.property) {
-            // this.tableTypeCtrl.setValue(this.property.type);
-            // this.options = Object.assign(this.options, DataTableComponent.DefaultOptions(), this.property.options);
-        } else {
-            this.ngOnInit();
-        }
+        this.property = this.data?.settings?.property;
+        this.initFromInput();
     }
 }
 

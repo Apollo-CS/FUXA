@@ -86,23 +86,30 @@ function init(_io, _api, _settings, _log, eventsMain) {
         socket.tagsClientSubscriptions = [];
         // check authorizations
         if (settings.secureEnabled && !settings.secureOnlyEditor) {
-            const token = socket.handshake.query.token;
-            if (!token || token === 'null') {
-                socket.disconnect();
-                logger.error(`Token is missing!`);
-            } else {
-                try {
-                    const authenticated = await api.authJwt.verify(token);
-                    if (!authenticated) {
-                        logger.error(`Token error!`);
-                        socket.disconnect();
-                    }
-                } catch (error) {
-                    logger.error(`Token error: ${error}`);
+            var token = socket.handshake.query.token;
+            if (!socket.handshake.query.token || socket.handshake.query.token === 'null') {
+                token = api.authJwt.getGuestToken();
+            }
+            try {
+                const authenticated = await api.authJwt.verify(token);
+                if (!authenticated && token !== api.authJwt.getGuestToken()) {
+                    logger.error(`Token is missing!`);
+                    socket.disconnect();
+                } else {
+                    logger.info(`Client connected with ${token === api.authJwt.getGuestToken() ? 'guest access' : 'authenticated token'}`);
+                }
+            } catch (error) {
+                logger.error(`Token error: ${error}`);
+                if (token !== api.authJwt.getGuestToken()) {
                     socket.disconnect();
                 }
             }
         }
+
+        socket.on('disconnect', (reason) => {
+            logger.info('socket.io disconnection:', socket.id, 'reason', reason);
+        });
+
         // client ask device status
         socket.on(Events.IoEventTypes.DEVICE_STATUS, (message) => {
             if (message === 'get') {
@@ -584,9 +591,10 @@ function checkPermissionEnabled(userPermission, contextPermission, type) {
  * @param {*} userPermission
  * @param {*} contextPermission permission could be permission or permissionRoles
  * @param {*} forceUndefined return true if params are undefined/null/0
+ * @param {*} onlyWithPermission return true if context.permissionRoles or context.permission are undefined/null/0
  * @returns { show: true/false, enabled: true/false }
  */
-function checkPermission(userPermission, context, forceUndefined = false) {
+function checkPermission(userPermission, context, forceUndefined = false, onlyWithPermission = false) {
     if (!userPermission && !context) {
         // No user and No context
         return { show: forceUndefined || !settings.secureEnabled, enabled: forceUndefined || !settings.secureEnabled };
@@ -596,6 +604,10 @@ function checkPermission(userPermission, context, forceUndefined = false) {
         return { show: true, enabled: true };
     }
     const contextPermission = settings.userRole ? context.permissionRoles : context.permission;
+    if (onlyWithPermission && contextPermission === undefined) {
+        // No context permission, should be used only to check items
+        return { show: true, enabled: true };
+    }
     if (settings.userRole) {
         if (userPermission && !contextPermission) {
             return { show: true, enabled: false };

@@ -77,7 +77,7 @@ export class ChartUplotComponent implements OnInit, AfterViewInit, OnDestroy {
                 this.nguplot.ngOnDestroy();
             }
             delete this.nguplot;
-            this.destroy$.next();
+            this.destroy$.next(null);
             this.destroy$.unsubscribe();
         } catch (e) {
             console.error(e);
@@ -214,7 +214,7 @@ export class ChartUplotComponent implements OnInit, AfterViewInit, OnDestroy {
         if (options) {
             this.options = options;
         }
-        this.destroy$.next();
+        this.destroy$.next(null);
         if (this.property?.type === ChartViewType.history && this.options.refreshInterval) {
             interval(this.options.refreshInterval * 60000).pipe(
                 takeUntil(this.destroy$)
@@ -284,6 +284,14 @@ export class ChartUplotComponent implements OnInit, AfterViewInit, OnDestroy {
             } else {
                 serie.scale = '1';
             }
+            serie.spanGaps = Utils.isNullOrUndefined(line.spanGaps) ? true : line.spanGaps;
+            if (line.fill) {
+                serie.fill = line.fill;
+            }
+            if (line.lineWidth) {
+                serie.width = line.lineWidth;
+            }
+
             if (line.zones?.some(zone => zone.fill)) {
                 const zones = this.generateZones(line.zones, 'fill', line.fill);
                 if (zones) {
